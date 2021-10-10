@@ -4,21 +4,16 @@
 //
 //  Created by Евгений Сердюков on 10.10.2021.
 //
-
-import CoreMotion
 import SpriteKit
-
 
 enum CollisionType: UInt32 {
     case player = 1
     case road = 2
     case ada = 4
-    
 }
 
 class GameScene: SKScene, SKPhysicsContactDelegate {
     
-    let motionManager = CMMotionManager()
     var textureAtlas = SKTextureAtlas()
     var textureArray = [SKTexture]()
     var player: SKSpriteNode = SKSpriteNode(imageNamed: "man1")
@@ -50,17 +45,8 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         player.physicsBody?.isDynamic = true
         player.physicsBody?.allowsRotation = false
         
-        motionManager.startAccelerometerUpdates()
-        
     }
        
-    override func update(_ currentTime: TimeInterval) {
-        
-        if player.position.x < frame.minX { player.position.x = frame.minX }
-        else if player.position.x > frame.maxX { player.position.x = frame.maxX }
-        
-    }
-
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         
         let defaultNumberOfSteps = 6
@@ -72,11 +58,13 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         
         for touch in touches {
            
-            
             let xTouchPosition: CGFloat = touch.location(in: self).x
+            let middleSpeed = (frame.maxX - frame.minX) / 6
+            let durationOfPath  = abs((xTouchPosition - player.position.x)) / middleSpeed
+            
             player.xScale = xTouchPosition > player.position.x ? 1.0 : -1.0;
             player.run(.repeatForever(animateFrameAction))
-            player.run(.moveTo(x: xTouchPosition, duration: 2), completion:{ self.player.removeAllActions() })
+            player.run(.moveTo(x: xTouchPosition, duration: durationOfPath), completion:{ self.player.removeAllActions() })
                         
             if player.position.x < frame.minX { player.position.x = frame.minX }
             else if player.position.x > frame.maxX { player.position.x = frame.maxX }
@@ -137,7 +125,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         }
         
         flashTheScreen(nTimes: numberOfFlashes)
-        //thunderClap()
+        thunderClap()
         
         DispatchQueue.main.asyncAfter(deadline: DispatchTime.now() + .seconds(Int.random(in: 5...20))) {
             self.lightningStrike(maxFlickeringTimes: 5, previosArrayOfLightnin: throughPath)
