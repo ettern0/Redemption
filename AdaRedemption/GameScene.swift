@@ -5,7 +5,9 @@
 //  Created by Евгений Сердюков on 10.10.2021.
 //
 
+import CoreMotion
 import SpriteKit
+
 
 enum CollisionType: UInt32 {
     case player = 1
@@ -14,9 +16,12 @@ enum CollisionType: UInt32 {
     
 }
 
-class GameScene: SKScene {
+class GameScene: SKScene, SKPhysicsContactDelegate {
     
-let player = SKSpriteNode(imageNamed: "umbrellaMan")
+    let motionManager = CMMotionManager()
+    var textureAtlas = SKTextureAtlas()
+    var textureArray = [SKTexture]()
+    var player: SKSpriteNode = SKSpriteNode(imageNamed: "man1")
     
     override func didMove(to view: SKView) {
         if let rainParticles = SKEmitterNode(fileNamed: "RainParticles") {
@@ -29,8 +34,9 @@ let player = SKSpriteNode(imageNamed: "umbrellaMan")
             cloudParticles.zPosition = -1
             addChild(cloudParticles)
         }
+        
         lightningStrike()
-    
+       
         player.name = "player"
         player.position.x = frame.minX + player.frame.width * 2
         player.position.y = childNode(withName: "roadPB")!.position.y + player.frame.height/2
@@ -41,19 +47,52 @@ let player = SKSpriteNode(imageNamed: "umbrellaMan")
         player.physicsBody?.categoryBitMask = CollisionType.player.rawValue
         player.physicsBody?.collisionBitMask = CollisionType.ada.rawValue | CollisionType.road.rawValue
         player.physicsBody?.contactTestBitMask = CollisionType.ada.rawValue | CollisionType.road.rawValue
-        player.physicsBody?.isDynamic = false
+        player.physicsBody?.isDynamic = true
+        player.physicsBody?.allowsRotation = false
+        
+        motionManager.startAccelerometerUpdates()
         
     }
+       
+    override func update(_ currentTime: TimeInterval) {
+        
+        if player.position.x < frame.minX { player.position.x = frame.minX }
+        else if player.position.x > frame.maxX { player.position.x = frame.maxX }
+        
+    }
+
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        
+        let defaultNumberOfSteps = 6
+        let playerFramesOverOneSecond: TimeInterval = 0.5 / TimeInterval(defaultNumberOfSteps)
+        let walkFrames = playerAnimationsOfMovement(forImagePrefix: "man", frameCount: defaultNumberOfSteps)
+        let animateFrameAction: SKAction = .animate(with: walkFrames, timePerFrame: playerFramesOverOneSecond, resize: true, restore: false)
+        
+        player.removeAllActions()
+        
+        for touch in touches {
+           
+            
+            let xTouchPosition: CGFloat = touch.location(in: self).x
+            player.xScale = xTouchPosition > player.position.x ? 1.0 : -1.0;
+            player.run(.repeatForever(animateFrameAction))
+            player.run(.moveTo(x: xTouchPosition, duration: 2), completion:{ self.player.removeAllActions() })
+                        
+            if player.position.x < frame.minX { player.position.x = frame.minX }
+            else if player.position.x > frame.maxX { player.position.x = frame.maxX }
+        }
+    }
     
-   
-    
-    
-    
-    
-    
-    
-    
-    
+    func playerAnimationsOfMovement(forImagePrefix baseImageName: String, frameCount count: Int) -> [SKTexture] {
+        var array = [SKTexture]()
+        for index in 1...count {
+            let imageName = baseImageName + String(index)
+            let texture = SKTexture(imageNamed: imageName)
+            array.append(texture)
+        }
+        return array
+    }
+      
     /* LightningGenerator
      https://github.com/artturijalli/Lightning-Generator
      */
@@ -65,10 +104,10 @@ let player = SKSpriteNode(imageNamed: "umbrellaMan")
     func thunderClap() {
         self.run(SKAction.playSoundFileNamed("thunderClap.mp3", waitForCompletion: false))
     }
-
+    
     func lightningStrike(maxFlickeringTimes: Int = 5, previosArrayOfLightnin: [SKShapeNode]? = nil) {
         
-         let throughPath = getRandomLightningPath()
+        let throughPath = getRandomLightningPath()
         
         if let removeNodes = previosArrayOfLightnin {
             self.removeChildren(in: removeNodes)
@@ -76,23 +115,23 @@ let player = SKSpriteNode(imageNamed: "umbrellaMan")
         
         let fadeTime = TimeInterval(CGFloat.random(in: 0.005 ... 0.03))
         let waitAction = SKAction.wait(forDuration: flickerInterval)
-
+        
         let reduceAlphaAction = SKAction.fadeAlpha(to: 0.0, duration: fadeTime)
         let increaseAlphaAction = SKAction.fadeAlpha(to: 1.0, duration: fadeTime)
         let flickerSeq = [waitAction, reduceAlphaAction, increaseAlphaAction]
-
+        
         var seq: [SKAction] = []
-
+        
         let numberOfFlashes = Int.random(in: 1 ... maxFlickeringTimes)
-
+        
         for _ in 1 ... numberOfFlashes {
             seq.append(contentsOf: flickerSeq)
         }
-
+        
         for line in throughPath {
             seq.append(SKAction.fadeAlpha(to: 0, duration: 0.25))
             seq.append(SKAction.removeFromParent())
-
+            
             line.run(SKAction.sequence(seq))
             self.addChild(line)
         }
@@ -109,7 +148,7 @@ let player = SKSpriteNode(imageNamed: "umbrellaMan")
         let lightUpScreenAction = SKAction.run { self.backgroundColor = self.litUpBackgroundColor }
         let waitAction = SKAction.wait(forDuration: flickerInterval)
         let dimScreenAction = SKAction.run { self.backgroundColor = self.darkBackgroundColor }
-
+        
         var flashActionSeq: [SKAction] = []
         for _ in 1 ... nTimes + 1 {
             flashActionSeq.append(contentsOf: [lightUpScreenAction, waitAction, dimScreenAction, waitAction])
@@ -168,7 +207,7 @@ let player = SKSpriteNode(imageNamed: "umbrellaMan")
         return strikePath
         
     }
-
+    
 }
 
 
